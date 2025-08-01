@@ -16,7 +16,7 @@ class QUBO:
         stock_data - Pandas df with date rows and ticker columns
         max_stocks_per_ticker - max amount of stocks that can be bought in a single company
     """
-    def __init__(self, stock_data, bits_per_ticker, theta, M_initial, R, returns_method: ReturnModel):
+    def __init__(self, stock_data, bits_per_ticker, theta, M_initial, returns_method: ReturnModel,  R = 0):
 
         self.tickers = stock_data.columns
         self.bits_per_ticker = bits_per_ticker
@@ -33,17 +33,17 @@ class QUBO:
         self.M_initial = M_initial
         self.theta = theta
 
-
+        #creates covariance matrix into numpy form
         self.cov_matrix = stock_data.cov().values
 
         #creates a matrix that maps KN-dim input vector to N-dim asset weight vector
         P_matrix = self._create_P_matrix()
 
         return_series = returns_method.get_return(stock_data)
+        
         self.return_vector = return_series.values.reshape(-1,1)
-        print(self.return_vector)
+        
 
-       
 
         #Calculate Qubo Matrix Based on Paper Definition
         #Creation of the quadratic term of the qubo has both a risk part and a return related part
@@ -52,8 +52,17 @@ class QUBO:
         returns = M_initial * P_matrix.T @ self.return_vector @ self.return_vector.T @ P_matrix
         quadratic = risk - returns
 
-        linear = 2 * self.R * P_matrix.T @ self.return_vector
+        linear = 2 * self.M_initial * self.R * P_matrix.T @ self.return_vector
+
+        if len(linear) != quadratic.shape[0] or quadratic.shape[0] !=  quadratic.shape[1]:
+            raise ValueError("linear dimension does not match qubo or quadratic is not square matrix")
         
+        #Initialize qubo
+        self.qubo = quadratic
+        for i in range(len(linear)):
+            self.qubo[i][i] += linear[i][0]
+        
+
 
         
 
@@ -71,10 +80,48 @@ class QUBO:
     
 
 
+   
+
+    def solve(self, to_num = True):
+
+        Q = {(i,j): self.qubo[i][j] 
+            for i in range(self.qubo.shape[0])
+            for j in range(i,self.qubo.shape[1])
+            }
+        
+        bqm = dimod.BinaryQuadraticModel.from_qubo(Q)
+
+        sampler = SimulatedAnnealingSampler()
+        sampleset = sampler.sample(bqm, num_reads = 100)
+
+        best_sample = sampleset.first.sample
+        best_energy = sampleset.first.energy
 
 
-    def solve(self):
-        pass
+        
+        #iterates through array of bits and forms a dictionary of ticker_names -> number stocks
+        if(to_num):
+            out = {}
+            n = self.num_tickers
+            k = self.bits_per_ticker
+
+            for i in range(n):
+
+                value = 0
+                for j in range(k):
+                    #if the current bit is on, add its value
+                    if best_sample[i*k + j] == 1:
+                        value += 2**(k-j-1)
+
+                out[self.tickers[i]] = value
+            
+            return out
+                
+        
+        #return optimal list of bits
+        else:
+            out = [int(best_sample[num]) for num in sorted(best_sample)]
+            return out
 
     #creates a matrix that maps kn-dim input vector to n-dim asset weight vector
     def _create_P_matrix(self):
@@ -95,12 +142,16 @@ class QUBO:
         return P
 
 
-a = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[4,5,6,5,7,9], "stock3":[1,2,3,3,2,1], "stock4":[6,5,4,3,2,1]})
+a = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[4,5,6,5,7,9], "stock3":[100, 50, 20, 8, 5, 2], "stock4":[2,5,10,20,40,80]})
 
+ex = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[6,5,4,3,2,1], "stock3":[1,2,3,4,5, 6]})
 np.set_printoptions(linewidth=200)
 
 method = MeanReturn()
-b = QUBO(a,4, 1, 1, 1, method)
 
-print(b._create_P_matrix())
+
+b = QUBO(a,4, .01, 1, method)
+d = b.solve()
+lst = [int(d[k]) for k in sorted(d)]
+print(d)
 
