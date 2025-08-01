@@ -1,5 +1,5 @@
 import pandas as pd
-from ReturnModel import ReturnModel
+from .ReturnModel import ReturnModel
 
 class MeanReturn(ReturnModel):
 
@@ -13,11 +13,15 @@ class MeanReturn(ReturnModel):
 
         #check that percent of invalid values < throw_at
         num_na = returns_df.isna().sum().sum()
+        number_stocks = returns_df.shape[1]
+        number_time_points = returns_df.shape[0]
         total_vals = returns_df.shape[0]*returns_df.shape[1]
 
         if num_na/float(total_vals) > throw_at:
             raise ValueError("Percent of NaN values > throw_at ratio")
 
+        returns_df = returns_df.sum() / number_time_points
+      
         return returns_df
     
 
