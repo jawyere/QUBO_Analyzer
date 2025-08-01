@@ -5,7 +5,8 @@ from neal import SimulatedAnnealingSampler
 import numpy as np
 from .returns.MeanReturn import MeanReturn
 from .returns.ReturnModel import ReturnModel
-
+from .covariance.CovarianceModel import CovarianceModel
+from .covariance.Covariance import Covariance
 
 class QUBO:
 
@@ -16,7 +17,7 @@ class QUBO:
         stock_data - Pandas df with date rows and ticker columns
         max_stocks_per_ticker - max amount of stocks that can be bought in a single company
     """
-    def __init__(self, stock_data, bits_per_ticker, theta, M_initial, returns_method: ReturnModel,  R = 0):
+    def __init__(self, stock_data, bits_per_ticker, theta, M_initial, returns_method: ReturnModel, covar: CovarianceModel,  R = 0):
 
         self.tickers = stock_data.columns
         self.bits_per_ticker = bits_per_ticker
@@ -34,7 +35,7 @@ class QUBO:
         self.theta = theta
 
         #creates covariance matrix into numpy form
-        self.cov_matrix = stock_data.cov().values
+        self.cov_matrix = covar.get_covariance_matrix(stock_data)
 
         #creates a matrix that maps KN-dim input vector to N-dim asset weight vector
         P_matrix = self._create_P_matrix()
@@ -61,25 +62,6 @@ class QUBO:
         self.qubo = quadratic
         for i in range(len(linear)):
             self.qubo[i][i] += linear[i][0]
-        
-
-
-        
-
-
-       
-    
-    
-    """
-    Initializes values of QUBO correctly:
-    
-    Parameters:
-    
-   """
-    
-    
-
-
    
 
     def solve(self, to_num = True):
@@ -144,7 +126,7 @@ class QUBO:
 
 a = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[4,5,6,5,7,9], "stock3":[100, 50, 20, 8, 5, 2], "stock4":[100,120,130,135,137,139]})
 ex = pd.DataFrame({
-    "stockA": [10, 12, 14, 15, 16, 18],
+    "stockA": [14, 14, 14, 14.2, 14.3, 14.5],
     "stockB": [20, 18, 19, 21, 22, 24],
     "stockC": [30, 31, 30, 29, 30, 30],
     "stockD": [5, 5.5, 6, 6.2, 6.5, 7]
@@ -153,9 +135,9 @@ ex2 = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[6,5,4,3,2,1], "stock3":[1,
 np.set_printoptions(linewidth=200)
 
 method = MeanReturn()
+covariance = Covariance()
 
-
-b = QUBO(ex,4, .1, 10, method)
+b = QUBO(ex2,40, .01, 10, method, covariance)
 d = b.solve()
 print(b.return_vector)
 
