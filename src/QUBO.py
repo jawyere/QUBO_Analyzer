@@ -3,8 +3,8 @@ import pandas as pd
 import dimod
 from neal import SimulatedAnnealingSampler
 import numpy as np
-from .Returns.MeanReturn import MeanReturn
-from .Returns.ReturnModel import ReturnModel
+from .returns.MeanReturn import MeanReturn
+from .returns.ReturnModel import ReturnModel
 
 
 class QUBO:
@@ -142,16 +142,22 @@ class QUBO:
         return P
 
 
-a = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[4,5,6,5,7,9], "stock3":[100, 50, 20, 8, 5, 2], "stock4":[2,5,10,20,40,80]})
-
-ex = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[6,5,4,3,2,1], "stock3":[1,2,3,4,5, 6]})
+a = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[4,5,6,5,7,9], "stock3":[100, 50, 20, 8, 5, 2], "stock4":[100,120,130,135,137,139]})
+ex = pd.DataFrame({
+    "stockA": [10, 12, 14, 15, 16, 18],
+    "stockB": [20, 18, 19, 21, 22, 24],
+    "stockC": [30, 31, 30, 29, 30, 30],
+    "stockD": [5, 5.5, 6, 6.2, 6.5, 7]
+})
+ex2 = pd.DataFrame({"stock1":[1,2,3,4,5,6], "stock2":[6,5,4,3,2,1], "stock3":[1,2,3,4,5, 6]})
 np.set_printoptions(linewidth=200)
 
 method = MeanReturn()
 
 
-b = QUBO(a,4, .01, 1, method)
+b = QUBO(ex,4, .1, 10, method)
 d = b.solve()
-lst = [int(d[k]) for k in sorted(d)]
+print(b.return_vector)
+
 print(d)
 
